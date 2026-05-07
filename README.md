@@ -3,9 +3,6 @@
 
 ---
 
-```md
-# SDAWorshipConstructor
-
 ![Version](https://img.shields.io/badge/version-1.2.2-blue)
 ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)
 ![.NET](https://img.shields.io/badge/.NET-10.0-purple)
@@ -26,11 +23,11 @@ After building the project, your output folder should look like this:
 
 /your-application-folder
 │
-├── HymnApp.exe
+├── SDAWorshipDraft.exe
 ├── .config/
 │   └── config.json
 └── data/
-└── hymns.json
+    └── hymns.json
 
 ````
 
@@ -90,13 +87,5 @@ Check:
 * `url` is a valid absolute URL
 * `hymns.json` is valid JSON
 * Folder structure matches the expected layout
-
----
-
-## License
-
-MIT License
-
-```
 
 ---
