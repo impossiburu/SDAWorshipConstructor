@@ -1,0 +1,8 @@
+namespace SDAWorshipDraft.Interfaces
+{
+    public interface IJsonFileInterface
+    {
+        T Load<T>(string path);
+        void Save<T>(string path, T data);
+    } 
+}
