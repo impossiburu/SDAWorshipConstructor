@@ -1,27 +1,31 @@
+using SDAWorshipDraft.Helpers;
+using SDAWorshipDraft.Interfaces;
+using SDAWorshipDraft.Services;
 using SDAWorshipDraft.Types;
 using System.ComponentModel;
-using System.Net.Http.Json;
 using System.Text.Json;
 
 namespace SDAWorshipDraft
 {
     public partial class Form1 : Form
     {
+        private readonly IJsonFileInterface _jsonFileService;
+        private readonly IHttpService _httpService;
+        
+        private TableLayoutPanel? editorTable;
+        
         private BindingList<FormElement> elements = [];
         private List<string> selectOptions = [];
-        private int highlightedRow = -1;
-        private static readonly JsonSerializerOptions _jsonOptions = new()
-        {
-            WriteIndented = true,
-            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-        };
         private Dictionary<string, string> config = [];
+        
+        private int highlightedRow = -1;
         private int printIndex = 0;
-        private TableLayoutPanel? editorTable;
-
+        
         public Form1()
         {
             InitializeComponent();
+            _jsonFileService = new JsonFileService();
+            _httpService = new HttpService(new HttpClient());
             LoadConfig();
             LoadFieldTypesList();
             LoadHymnsList();
@@ -34,57 +38,35 @@ namespace SDAWorshipDraft
             FieldTypesList.Items.Add(new FormElement
             {
                 Type = FormElementTypes.Label,
-                Label = "Новый пункт"
+                Label = "New Label"
             });
             FieldTypesList.Items.Add(new FormElement
             {
                 Type = FormElementTypes.Input,
-                Label = "Пункт с ответственным",
-                Value = "Ответственный"
+                Label = "Label with responsible",
+                Value = "Responsible"
             });
             FieldTypesList.Items.Add(new FormElement
             {
                 Type = FormElementTypes.Select,
-                Label = "Гимн"
+                Label = "Hymn"
             });
             FieldTypesList.Items.Add(new FormElement
             {
                 Type = FormElementTypes.Title,
-                Label = "Заголовок"
+                Label = "Title"
             });
             FieldTypesList.SelectedIndex = 0;
         }
 
         private void LoadHymnsList()
         {
-            try
-            {
-                selectOptions = TryLoadFromFile<List<string>>("data/hymns.json");
-            }
-            catch (JsonException jex)
-            {
-                MessageBox.Show($"Ошибка чтения данных: {jex.Message}", "Ошибка JSON");
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Ошибка: {ex.Message}", "Ошибка");
-            }
+            selectOptions = TryLoadFromFile<List<string>>(Constants.HymnsFile) ?? [];
         }
 
         private void LoadConfig()
         {
-            try
-            {
-                config = TryLoadFromFile<Dictionary<string, string>>(".config/config.json");
-            }
-            catch (JsonException jex)
-            {
-                MessageBox.Show($"Ошибка чтения данных: {jex.Message}", "Ошибка JSON");
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Ошибка: {ex.Message}", "Ошибка");
-            }
+            config = TryLoadFromFile<Dictionary<string, string>>(Constants.ConfigFile) ?? [];
         }
 
         private void Elements_ListChanged(object? sender, ListChangedEventArgs e)
@@ -347,20 +329,28 @@ namespace SDAWorshipDraft
             return combo;
         }
 
-        private T TryLoadFromFile<T>(string filepath)
+        private T? TryLoadFromFile<T>(string filepath)
         {
-            if (!File.Exists(filepath))
+            try
             {
-                throw new FileNotFoundException($"Файл {filepath} не найден");
+                return _jsonFileService.Load<T>(filepath);
             }
-
-            string json = File.ReadAllText(filepath);
-            if (string.IsNullOrWhiteSpace(json))
+            catch (JsonException jex)
             {
-                throw new JsonException("Файл конфигурации поврежден. Переустановите приложение или обратитесь к разработчику");
+                MessageBox.Show(
+                    $"Invalid JSON:\n{jex.Message}",
+                    "JSON error");
+        
+                return default;
             }
-
-            return JsonSerializer.Deserialize<T>(json) ?? throw new JsonException("Не удалось преобразовать содержимое файла в объект.");
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"Error:\n{ex.Message}",
+                    "Error");
+        
+                return default;
+            }
         }
 
         private void AddFieldBtn_Click(object sender, EventArgs e)
@@ -373,10 +363,19 @@ namespace SDAWorshipDraft
 
         private void SaveToFileBtn_Click(object sender, EventArgs e)
         {
-            string jsonToSave = JsonSerializer.Serialize(elements, _jsonOptions);
-            File.WriteAllText("struct.json", jsonToSave);
-
-            MessageBox.Show("Успешно сохранено!", "Успех");
+            try
+            {
+                _jsonFileService.Save(Constants.StructFile, elements);
+                MessageBox.Show("Saved successfully!", "Success");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"Unable to save file:\n{ex.Message}",
+                    "Error",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
         }
 
         private void ResetBtn_Click(object sender, EventArgs e)
@@ -397,34 +396,20 @@ namespace SDAWorshipDraft
 
         private void LoadFromFileMenuItem_Click(object sender, EventArgs e)
         {
-            try
+            this.Cursor = Cursors.WaitCursor;
+            var loadedData = TryLoadFromFile<BindingList<FormElement>>(Constants.StructFile);
+            if (loadedData != null)
             {
-                this.Cursor = Cursors.WaitCursor;
-                var loadedData = TryLoadFromFile<BindingList<FormElement>>("struct.json");
-                if (loadedData != null)
+                elements.RaiseListChangedEvents = false;
+                elements.Clear();
+                foreach (FormElement item in loadedData)
                 {
-                    elements.RaiseListChangedEvents = false;
-                    elements.Clear();
-                    foreach (FormElement item in loadedData)
-                    {
-                        elements.Add(item);
-                    }
-                    elements.RaiseListChangedEvents = true;
-                    elements.ResetBindings();
+                    elements.Add(item);
                 }
+                elements.RaiseListChangedEvents = true;
+                elements.ResetBindings();
             }
-            catch (JsonException jex)
-            {
-                MessageBox.Show($"Ошибка чтения данных: {jex.Message}", "Ошибка JSON");
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Ошибка: {ex.Message}", "Ошибка");
-            }
-            finally
-            {
-                this.Cursor = Cursors.Default;
-            }
+            this.Cursor = Cursors.Default;
         }
 
         private void PrintBtn_Click(object sender, EventArgs e)
@@ -565,11 +550,10 @@ namespace SDAWorshipDraft
         {
             try
             {
+                this.Cursor = Cursors.WaitCursor;
                 if (config != null && config.TryGetValue("url", out string? value))
                 {
-                    using HttpClient client = new HttpClient();
-                    this.Cursor = Cursors.WaitCursor;
-                    var response = await client.GetFromJsonAsync<BindingList<FormElement>>(value);
+                    var response = await _httpService.LoadAsync(url);
                     if (response != null)
                     {
                         elements.RaiseListChangedEvents = false;
@@ -585,17 +569,17 @@ namespace SDAWorshipDraft
                 }
                 else
                 {
-                    MessageBox.Show("Отсутствует необходимы параметр url", "Ошибка JSON");
+                    MessageBox.Show("Missing url parameter url", "Parameters error");
                     return;
                 }
             }
             catch (JsonException jex)
             {
-                MessageBox.Show($"Ошибка чтения данных: {jex.Message}", "Ошибка JSON");
+                MessageBox.Show($"Error reading file: {jex.Message}", "JSON error");
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Ошибка: {ex.Message}", "Ошибка");
+                MessageBox.Show($"Ошибка: {ex.Message}", "Error");
             }
             finally
             {
