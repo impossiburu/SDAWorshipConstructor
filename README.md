@@ -13,6 +13,8 @@
 This app is one of the modules of the community management system. Free to distribute **(Attribution required)**.
 It is designed to be deployed as a **Self-Contained** build.
 
+There is the Avalonia version [here](https://github.com/impossiburu/SDAWorshipConstructorAvalonia)
+
 ---
 
 ## Project Structure
